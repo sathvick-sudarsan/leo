@@ -13,7 +13,9 @@ uv sync --frozen
 uv run --frozen python -m leo
 ```
 
-The application enters the Qt event loop and remains resident when no window is visible. During the lifecycle baseline, stop it with Ctrl+C/terminal process termination; tray controls follow in M0 integration.
+Leo remains resident in the Windows tray while diagnostics are hidden. Right-click its tray icon (check the tray overflow if needed) for `Show M0 diagnostics`, `Hide M0 diagnostics`, and `Quit Leo`.
+
+Diagnostics refresh every 250 ms and display Resolve as active, inactive, or unavailable. Judge state after focusing Resolve or another app, without opening Leo's tray; opening the tray changes foreground focus. `Quit Leo` exits the application.
 
 ```powershell
 uv lock --check
