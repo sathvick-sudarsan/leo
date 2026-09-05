@@ -25,6 +25,25 @@ uv run --frozen pytest
 git diff --check
 ```
 
+## Development package and smoke
+
+Smoke mode uses the normal QApplication/tray/overlay runtime, briefly shows diagnostics, clears them, and quits automatically. It is a development check, not proof of real Resolve integration.
+
+```powershell
+uv run --frozen python -m leo --smoke-test
+uv run --frozen pyinstaller --noconfirm --clean leo.spec
+$leo = Start-Process -FilePath .\dist\Leo\Leo.exe -ArgumentList '--smoke-test' -WindowStyle Hidden -PassThru
+if (-not $leo.WaitForExit(30000)) {
+    $leo.Kill()
+    throw 'Leo packaged smoke timed out'
+}
+if ($leo.ExitCode -ne 0) { throw "Leo packaged smoke failed: $($leo.ExitCode)" }
+```
+
+Launch `.\dist\Leo\Leo.exe` without the argument for normal packaged use. Keep the complete `dist/Leo` directory together; this is an onedir development build, not an installer. Windows CI uses uv 0.12.10 and runs the frozen/static/test/source-smoke/build/packaged-smoke gates above.
+
+Real Resolve foreground transitions, native click-through and keyboard focus require the [documented owner dogfood scenario](docs/dogfood/scenarios/m0-leo-boots.md) for both source and package. Initial and final dogfood remain required; automated smoke does not certify them.
+
 Leo-owned source is all-rights-reserved; see `LICENSE` and `THIRD_PARTY_NOTICES.md`. M0 does not authorize public binary distribution.
 
 See:

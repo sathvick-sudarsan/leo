@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import textwrap
 
 from leo.app import build_application
 
@@ -69,3 +70,53 @@ def test_run_retains_tray_and_overlay_through_event_loop(qapp, monkeypatch):
     monkeypatch.setattr(module, "build_application", build)
     monkeypatch.setattr(qapp, "exec", event_loop)
     assert module.run(["leo"]) == 0
+
+
+def test_source_smoke_entry_point_exits_successfully():
+    result = subprocess.run(
+        [sys.executable, "-m", "leo", "--smoke-test"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_smoke_shows_and_clears_real_overlay_inside_event_loop_before_quit():
+    script = textwrap.dedent("""
+        from PySide6.QtCore import QThread
+        import leo.app as module
+
+        events = []
+        class ObservedOverlay(module.LeoOverlay):
+            def show_status(self, text):
+                super().show_status(text)
+                assert QThread.currentThread().loopLevel() > 0
+                assert self.isVisible() and self.label.text()
+                events.append('show')
+
+            def clear_status(self):
+                super().clear_status()
+                assert not self.isVisible() and not self.label.text()
+                events.append('clear')
+
+        module.LeoOverlay = ObservedOverlay
+        original_build = module.build_application
+        def build(argv):
+            runtime = original_build(argv)
+            app, tray, overlay = runtime
+            assert tray.isVisible()
+            assert not app.quitOnLastWindowClosed()
+            app.aboutToQuit.connect(lambda: events.append('quit'))
+            return runtime
+
+        module.build_application = build
+        assert module.run(['leo', '--smoke-test']) == 0
+        assert events[0] == 'show', events
+        assert events.index('clear') < events.index('quit'), events
+        assert events[-1] == 'quit', events
+    """)
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=15
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
