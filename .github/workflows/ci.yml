@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.12.10"
+      - run: uv lock --check
+      - run: uv sync --frozen
+      - run: uv run --frozen ruff format --check .
+      - run: uv run --frozen ruff check .
+      - run: uv run --frozen pytest
+      - name: Source smoke
+        timeout-minutes: 1
+        run: uv run --frozen python -m leo --smoke-test
+      - run: uv run --frozen pyinstaller --noconfirm --clean leo.spec
+      - run: git diff --check
+      - name: Packaged smoke
+        shell: pwsh
+        run: |
+          $leo = Start-Process -FilePath .\dist\Leo\Leo.exe -ArgumentList '--smoke-test' -WindowStyle Hidden -PassThru
+          if (-not $leo.WaitForExit(30000)) {
+            $leo.Kill()
+            throw 'Leo packaged smoke timed out'
+          }
+          if ($leo.ExitCode -ne 0) {
+            throw "Leo packaged smoke failed with exit code $($leo.ExitCode)"
+          }
